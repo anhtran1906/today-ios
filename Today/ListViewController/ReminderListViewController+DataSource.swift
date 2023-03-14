@@ -38,7 +38,7 @@ extension ReminderListViewController {
         }
         
         var doneButtonConfig = doneButtonConfiguration(for: reminder)
-        doneButtonConfig.tintColor = UIColor(named: "BackgroundColorListItem.Dark")
+        doneButtonConfig.tintColor = UIColor(named: "BackgroundColorListItem")
         cell.accessibilityCustomActions = [doneButtonAccessibilityAction(for: reminder)]
         cell.accessibilityValue = reminder.isComplete ? reminderCompletedValue : reminderNotCompletedValue
         cell.accessories = [
@@ -87,4 +87,18 @@ extension ReminderListViewController {
         updateReminder(reminder)
         updateSnapshot(reloading: [reminder.id])
     }
+    
+    func pushDetailViewForReminder(withId id: Reminder.ID) {
+        let reminder = reminder(withId: id)
+        let viewController = ReminderViewController(reminder: reminder)
+        navigationController?.pushViewController(viewController, animated: true)
+    }
+    
+    override func collectionView(
+          _ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath
+      ) -> Bool {
+          let id = reminders[indexPath.item].id
+          pushDetailViewForReminder(withId: id)
+          return false
+      }
 }
