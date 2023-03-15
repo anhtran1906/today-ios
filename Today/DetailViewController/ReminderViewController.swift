@@ -8,18 +8,26 @@
 import UIKit
 
 class ReminderViewController: UICollectionViewController {
-    private typealias DataSource = UICollectionViewDiffableDataSource<Int, Row>
-    private typealias Snapshot = NSDiffableDataSourceSnapshot<Int, Row>
+    private typealias DataSource = UICollectionViewDiffableDataSource<Section, Row>
+    private typealias Snapshot = NSDiffableDataSourceSnapshot<Section, Row>
     
     private var dataSource: DataSource!
     
     func cellRegistrationHandler(cell: UICollectionViewListCell, indexPath: IndexPath, row: Row) {
-        var contentConfiguration = cell.defaultContentConfiguration()
-        contentConfiguration.text = text(for: row)
-        contentConfiguration.textProperties.font = UIFont.preferredFont(forTextStyle: row.textStyle)
-        contentConfiguration.image = row.image
-        cell.contentConfiguration = contentConfiguration
-        cell.tintColor = UIColor(named: "BackgroundColorListItem")
+        let section = section(for: indexPath)
+       
+        
+        switch (section, row) {
+        
+        case (_, .header(let title)):
+            cell.contentConfiguration = headerConfiguration(for: cell, with: title)
+        case (.view, _):
+            cell.contentConfiguration = defaultConfiguration(for: cell, at: row)
+        default:
+            fatalError("Unexpected combination of section and row")
+        }
+              
+       cell.tintColor = UIColor(named: "BackgroundColorListItem")
     }
     
     override func viewDidLoad() {
@@ -29,13 +37,40 @@ class ReminderViewController: UICollectionViewController {
             (collectionView: UICollectionView, indexPath: IndexPath, itemIdentifier: Row) in
             return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: itemIdentifier)
         }
-        updateSnapshot()
+        if #available(iOS 16, *) {
+           navigationItem.style = .navigator
+        }
+        navigationItem.title = NSLocalizedString("Reminder", comment: "Reminder view conroller title")
+        updateSnapshotForViewing()
+        navigationItem.rightBarButtonItem = editButtonItem
     }
     
-    func updateSnapshot() {
+    override func setEditing(_ editing: Bool, animated: Bool) {
+        super.setEditing(editing, animated: animated)
+        if editing {
+            updateSnapshotForEditing()
+        }
+        else {
+            updateSnapshotForViewing()
+        }
+    }
+    
+    func updateSnapshotForViewing() {
         var snapshot = Snapshot()
-        snapshot.appendSections([0])
-        snapshot.appendItems([Row.title, Row.notes, Row.date, Row.time], toSection: 0)
+        snapshot.appendSections([.view])
+        snapshot.appendItems([Row.header(""), Row.title, Row.notes, Row.date, Row.time], toSection: .view)
+
+        dataSource.apply(snapshot)
+    }
+    
+    func updateSnapshotForEditing() {
+        var snapshot = Snapshot()
+        snapshot.appendSections([.title, .notes, .date])
+        snapshot.appendItems([.header(Section.title.name)], toSection: .title)
+        snapshot.appendItems([.header(Section.notes.name)], toSection: .notes)
+        snapshot.appendItems([.header(Section.date.name)], toSection: .date)
+
+
         dataSource.apply(snapshot)
     }
     
@@ -44,6 +79,7 @@ class ReminderViewController: UICollectionViewController {
         self.reminder = reminder
         var listConfiguration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
         listConfiguration.showsSeparators = false
+        listConfiguration.headerMode = .firstItemInSection
         let listLayout = UICollectionViewCompositionalLayout.list(using: listConfiguration)
         super.init(collectionViewLayout: listLayout)
         
@@ -52,12 +88,11 @@ class ReminderViewController: UICollectionViewController {
         fatalError("Always initialize ReminderViewController using init(reminder:)")
     }
     
-    func text(for row: Row) -> String? {
-        switch row {
-        case .date: return reminder.dueDate.dayText
-        case .time: return reminder.dueDate.formatted(date: .omitted, time: .shortened)
-        case .title: return reminder.title
-        case .notes: return reminder.notes
+    func section(for indexPath: IndexPath) -> Section? {
+        let sectionNumber = isEditing ? indexPath.section + 1 : indexPath.section
+        guard let section = Section(rawValue: sectionNumber) else {
+            fatalError("Unable to find matching section")
         }
+        return section
     }
 }
